@@ -2,65 +2,67 @@ import streamlit as st
 import pandas as pd
 from main import analisar_tudo_v4
 
-# 1. FORÇAR TEMA DARK E CORES NO TOPO
-st.set_page_config(page_title="SmartYield 360", page_icon="🏦")
+st.set_page_config(page_title="SmartYield 360", layout="centered")
 
-# CSS CORRETIVO - Garante que o texto seja legível
+# CSS para esconder os índices das tabelas e melhorar visual
 st.markdown("""
     <style>
-    /* Fundo da página */
-    .stApp { background-color: #0e1117; }
-    
-    /* Forçar cor dos textos e números para Branco/Cinza Claro */
-    h1, h2, h3, p, span, label { color: #ffffff !important; }
-    
-    /* Estilo dos inputs */
-    .stNumberInput div div input { color: #ffffff !important; background-color: #1e2130 !important; }
-    
-    /* Estilo das tabelas (Dataframes) */
-    .stDataFrame { background-color: #1e2130; border-radius: 10px; }
-    
-    /* Botão Principal */
-    .stButton>button { 
-        width: 100%; 
-        background-color: #00d4ff; 
-        color: #ffffff !important; 
-        font-weight: bold; 
-        border-radius: 10px;
-        border: none;
-        height: 3em;
+    .stTable [data-testid="stTableTrendsCol"] { display: none; }
+    thead tr th:first-child { display:none; }
+    tbody th { display:none; }
+    .best-card {
+        background-color: #1e2130;
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #00d4ff;
+        text-align: center;
+        margin-bottom: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("🏦 SmartYield 360")
-st.write("Seu consultor de aportes atualizado.")
 
-# ENTRADA
-valor = st.number_input("Valor do aporte (R$):", min_value=10.0, value=1000.0)
+valor = st.number_input("Quanto vai aportar hoje? (R$)", min_value=10.0, value=1000.0)
 
-if st.button("ANALISAR MERCADO"):
-    with st.spinner('Buscando dados...'):
-        df_rf, df_acoes = analisar_tudo_v4(valor)
+if st.button("ANALISAR MELHORES DO MÊS"):
+    df_rf, df_acoes = analisar_tudo_v4(valor)
+    
+    # --- LÓGICA DO MELHOR DO MÊS ---
+    # Pegamos o ativo com maior Score (Geralmente BBSE3 ou PETR4 pelo Dividend Yield)
+    top_acao = df_acoes.sort_values(by="Score", ascending=False).iloc[0]
+    top_rf = df_rf.sort_values(by="Mensal Líq.", ascending=False).iloc[0]
+
+    st.markdown(f"""
+        <div class="best-card">
+            <h2 style='color: #00d4ff; margin:0;'>🏆 MELHOR DO MÊS</h2>
+            <p style='color: white; font-size: 20px; margin:10px;'><b>{top_acao['Ativo']}</b> (Ações)</p>
+            <p style='color: #2ecc71; margin:0;'>Renda Mensal Estimada: R$ {top_acao['Mensal Líq.']:.2f}</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    aba1, aba2 = st.tabs(["🔒 RENDA FIXA", "📊 AÇÕES"])
+
+    with aba1:
+        st.write("### 💰 Onde o banco paga mais:")
+        # Criamos uma versão limpa da tabela de Renda Fixa
+        rf_clean = df_rf[['Ativo', 'Onde', 'Mensal Líq.', 'Evolução 1 Ano']].copy()
+        rf_clean.columns = ['Investimento', 'Instituição', 'Renda Mensal', 'Total em 1 Ano']
+        st.table(rf_clean.style.format({"Renda Mensal": "R$ {:.2f}", "Total em 1 Ano": "R$ {:.2f}"}))
         
-        # Abas para organizar no celular
-        aba1, aba2 = st.tabs(["🔒 RENDA FIXA", "📊 AÇÕES"])
+        st.info(f"💡 Dica: O **{top_rf['Ativo']}** na **{top_rf['Onde']}** é sua melhor opção em segurança hoje.")
 
-        with aba1:
-            st.subheader("Onde render mais com segurança:")
-            # Exibe a tabela sem filtros de cor complexos para evitar erros
-            st.table(df_rf[['Ativo', 'Onde', 'Mensal Líq.', 'Evolução 1 Ano']])
+    with aba2:
+        st.write("### 📈 Radar de Dividendos B3:")
+        if not df_acoes.empty:
+            # Limpando a tabela de ações para mobile
+            acoes_clean = df_acoes[['Ativo', 'Mensal Líq.', 'Margem', 'Status']].copy()
+            acoes_clean.columns = ['Empresa', 'Renda Estimada', 'Margem Segurança', 'Status']
+            
+            st.table(acoes_clean.style.format({"Renda Estimada": "R$ {:.2f}"}))
+            
+            st.success(f"🔥 **Foco do Mês:** {top_acao['Empresa']} devido à margem de {top_acao['Margem Segurança']}.")
+        else:
+            st.error("Erro ao carregar dados da B3.")
 
-        with aba2:
-            if not df_acoes.empty:
-                st.subheader("Radar de Oportunidades B3:")
-                # Mostra a melhor escolha do dia em destaque
-                top_acao = df_acoes.sort_values(by="Score", ascending=False).iloc[0]
-                st.success(f"⭐ MELHOR ENTRADA: {top_acao['Ativo']}")
-                
-                # Tabela de ações
-                st.table(df_acoes[['Ativo', 'Mensal Líq.', 'Margem', 'Status']])
-            else:
-                st.warning("Aporte insuficiente para as ações da lista ou erro de conexão.")
-
-st.caption("Versão 4.2 - 2026 • Dados protegidos")
+st.caption("Filtro aplicado: Escolhendo a melhor entrada do dia (Somente 1 por categoria).")

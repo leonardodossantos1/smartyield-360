@@ -4,7 +4,7 @@ from main import analisar_tudo_v4
 
 st.set_page_config(page_title="SmartYield 360", layout="centered")
 
-# CSS para esconder os índices das tabelas e melhorar visual
+# CSS para esconder os índices das tabelas e melhorar visual - NÃO MUDADO
 st.markdown("""
     <style>
     .stTable [data-testid="stTableTrendsCol"] { display: none; }
@@ -29,7 +29,6 @@ if st.button("ANALISAR MELHORES DO MÊS"):
     df_rf, df_acoes = analisar_tudo_v4(valor)
     
     # --- LÓGICA DO MELHOR DO MÊS ---
-    # Pegamos o ativo com maior Score (Geralmente BBSE3 ou PETR4 pelo Dividend Yield)
     top_acao = df_acoes.sort_values(by="Score", ascending=False).iloc[0]
     top_rf = df_rf.sort_values(by="Mensal Líq.", ascending=False).iloc[0]
 
@@ -45,7 +44,6 @@ if st.button("ANALISAR MELHORES DO MÊS"):
 
     with aba1:
         st.write("### 💰 Onde o banco paga mais:")
-        # Criamos uma versão limpa da tabela de Renda Fixa
         rf_clean = df_rf[['Ativo', 'Onde', 'Mensal Líq.', 'Evolução 1 Ano']].copy()
         rf_clean.columns = ['Investimento', 'Instituição', 'Renda Mensal', 'Total em 1 Ano']
         st.table(rf_clean.style.format({"Renda Mensal": "R$ {:.2f}", "Total em 1 Ano": "R$ {:.2f}"}))
@@ -55,13 +53,13 @@ if st.button("ANALISAR MELHORES DO MÊS"):
     with aba2:
         st.write("### 📈 Radar de Dividendos B3:")
         if not df_acoes.empty:
-            # Limpando a tabela de ações para mobile
+            # Mostramos a tabela
             acoes_clean = df_acoes[['Ativo', 'Mensal Líq.', 'Margem', 'Status']].copy()
             acoes_clean.columns = ['Empresa', 'Renda Estimada', 'Margem Segurança', 'Status']
-            
             st.table(acoes_clean.style.format({"Renda Estimada": "R$ {:.2f}"}))
             
-            st.success(f"🔥 **Foco do Mês:** {top_acao['Empresa']} devido à margem de {top_acao['Margem Segurança']}.")
+            # CORREÇÃO DO ERRO AQUI: Usando os nomes originais das colunas (Ativo e Margem)
+            st.success(f"🔥 **Foco do Mês:** {top_acao['Ativo']} devido à margem de {top_acao['Margem']}.")
         else:
             st.error("Erro ao carregar dados da B3.")
 

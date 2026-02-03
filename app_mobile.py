@@ -1,89 +1,30 @@
-import yfinance as yf
+import streamlit as st
 import pandas as pd
-from datetime import datetime, timezone, timedelta
+from main import analisar_tudo_v4
 
-# --- CONFIGURAÇÕES DE MERCADO 2026 ---
-SELIC = 0.1225  # 12.25%
-CDI = SELIC - 0.0010 
+# Configuração da página para Mobile
+st.set_page_config(page_title="SmartYield 360", page_icon="🏦", layout="centered")
 
-def analisar_tudo_v4(valor_aporte):
-    # 1. CATEGORIA: RENDA FIXA
-    rf_data = [
-        {"Ativo": "CDB 100%", "Onde": "Nubank/Inter", "Taxa": 1.0, "Index": "CDI", "Isento": False},
-        {"Ativo": "LCI Imobiliário", "Onde": "BTG/XP", "Taxa": 0.90, "Index": "CDI", "Isento": True},
-        {"Ativo": "LCA Agro", "Onde": "Itaú/BB", "Taxa": 0.88, "Index": "CDI", "Isento": True}
-    ]
-    
-    rf_list = []
-    for i in rf_data:
-        t_anual = (i['Taxa'] * CDI)
-        mensal_liq = ((valor_aporte * t_anual) / 12) * (1 if i['Isento'] else 0.825)
+st.title("🏦 SmartYield 360")
+st.subheader("Onde investir seu aporte hoje?")
+
+# Entrada de dados
+valor = st.number_input("Quanto vai investir hoje? (R$)", min_value=10.0, value=1000.0, step=50.0)
+
+if st.button("🚀 Analisar Melhores Entradas"):
+    with st.spinner('Consultando B3 e Taxas atualizadas...'):
+        df_rf, df_acoes = analisar_tudo_v4(valor)
         
-        # Projeção 1 ano (Aporte mensal acumulado)
-        taxa_mensal = (1 + t_anual)**(1/12) - 1
-        acumulado = 0
-        for _ in range(12):
-            acumulado = (acumulado + valor_aporte) * (1 + taxa_mensal)
+        st.write("### 💰 Renda Fixa (Segurança)")
+        st.dataframe(df_rf, use_container_width=True)
         
-        rf_list.append({
-            "Ativo": i['Ativo'], "Onde": i['Onde'], "Mensal Líq.": round(mensal_liq, 2),
-            "Evolução 1 Ano": round(acumulado, 2), "Score": 9, "Categoria": "Renda Fixa"
-        })
+        st.write("### 📈 Ações (Renda Passiva)")
+        if not df_acoes.empty:
+            # Filtro para mostrar a melhor entrada do dia (Score mais alto)
+            melhor_opcao = df_acoes.sort_values(by="Score", ascending=False).head(1)
+            st.success(f"⭐ **Melhor Entrada Hoje:** {melhor_opcao['Ativo'].values[0]}")
+            st.dataframe(df_acoes, use_container_width=True)
+        else:
+            st.warning("Aporte baixo para as ações selecionadas ou erro de conexão com a B3.")
 
-    # 2. CATEGORIA: AÇÕES (LISTA SOLICITADA)
-    tickers = ["BBSE3", "ITSA4", "TAEE11", "ITUB4", "EGIE3", "PETR4", "VALE3", "EMBR3"]
-    acoes_list = []
-    
-    # BUSCA DE DADOS EM LOTE (Evita o erro de "Aporte Baixo")
-    try:
-        # Puxa os preços de todos os tickers de uma vez só
-        dados = yf.download([f"{t}.SA" for t in tickers], period="5d", interval="1d", progress=False)
-        precos_atuais = dados['Close'].iloc[-1]
-    except:
-        precos_atuais = pd.Series()
-
-    for t in tickers:
-        try:
-            t_sa = f"{t}.SA"
-            # Pega o preço do lote. Se falhar, tenta o individual.
-            p = precos_atuais[t_sa] if t_sa in precos_atuais else None
-            
-            if p is None or pd.isna(p):
-                # Plano B: Busca individual rápida
-                ticker_obj = yf.Ticker(t_sa)
-                p = ticker_obj.info.get('currentPrice') or ticker_obj.info.get('previousClose')
-
-            if not p or p <= 0: continue
-            if valor_aporte < p: continue # Se o aporte for menor que 1 ação, ele pula
-
-            # Busca dividendos para o cálculo de Preço Teto
-            acao = yf.Ticker(t_sa)
-            divs = acao.dividends
-            
-            if not divs.empty:
-                cinco_anos = datetime.now(timezone.utc) - timedelta(days=1825)
-                media_5y = divs[divs.index > cinco_anos].sum() / 5
-            else:
-                media_5y = 0
-
-            # Cálculos de Oportunidade (Método Bazin)
-            preco_teto = media_5y / 0.06 if media_5y > 0 else 0
-            margem = ((preco_teto / p) - 1) * 100 if preco_teto > 0 else 0
-            
-            qtd_acoes = int(valor_aporte // p)
-            rendimento_estimado = (qtd_acoes * (media_5y / 12)) if media_5y > 0 else 0
-
-            acoes_list.append({
-                "Ativo": t, 
-                "Onde": "Corretora (B3)", 
-                "Mensal Líq.": round(rendimento_estimado, 2),
-                "Margem": f"{margem:.1f}%", 
-                "Status": "🔥 OPORTUNIDADE" if margem > 15 else "SAUDÁVEL", 
-                "Evolução 1 Ano": round((valor_aporte * 12) * 1.08, 2), # Estimativa básica de valorização
-                "Score": 10 if margem > 15 else 7, 
-                "Categoria": "Ações"
-            })
-        except:
-            continue
-
-    return pd.DataFrame(rf_list), pd.DataFrame(acoes_list)
+st.info("Apenas 1 melhor entrada sugerida por dia com base na Margem de Segurança.")

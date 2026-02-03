@@ -7,11 +7,11 @@ SELIC = 0.1225
 CDI = SELIC - 0.0010 
 
 def analisar_tudo_v4(valor_aporte):
-    # 1. CATEGORIA: RENDA FIXA
+    # 1. CATEGORIA: RENDA FIXA (AQUI VOCÊ MUDA OS NOMES DOS BANCOS)
     rf_data = [
-        {"Ativo": "CDB 100%", "Onde": "Digital", "Taxa": 1.0, "Index": "CDI", "Isento": False},
-        {"Ativo": "LCI Imobiliário", "Onde": "Corretora", "Taxa": 0.90, "Index": "CDI", "Isento": True},
-        {"Ativo": "LCA Agro", "Onde": "Banco", "Taxa": 0.88, "Index": "CDI", "Isento": True}
+        {"Ativo": "CDB 100% (Diário)", "Onde": "Nubank / Inter", "Taxa": 1.0, "Index": "CDI", "Isento": False},
+        {"Ativo": "LCI Imobiliário", "Onde": "XP / BTG Pactual", "Taxa": 0.90, "Index": "CDI", "Isento": True},
+        {"Ativo": "LCA Agro", "Onde": "Itaú / BB", "Taxa": 0.88, "Index": "CDI", "Isento": True}
     ]
     
     rf_list = []
@@ -24,21 +24,24 @@ def analisar_tudo_v4(valor_aporte):
             acumulado = (acumulado + valor_aporte) * (1 + taxa_mensal)
         
         rf_list.append({
-            "Ativo": i['Ativo'], "Onde": i['Onde'], "Mensal Líq.": round(mensal_liq, 2),
-            "Evolução 1 Ano": round(acumulado, 2), "Score": 9, "Categoria": "Renda Fixa"
+            "Ativo": i['Ativo'], 
+            "Onde": i['Onde'], # Nome do Banco/Corretora
+            "Mensal Líq.": round(mensal_liq, 2),
+            "Evolução 1 Ano": round(acumulado, 2), 
+            "Score": 9, 
+            "Categoria": "Renda Fixa"
         })
 
-    # 2. CATEGORIA: AÇÕES (COM PREÇOS DE SEGURANÇA CONTRA ERRO 429)
+    # 2. CATEGORIA: AÇÕES (B3)
     tickers = ["BBSE3", "ITSA4", "TAEE11", "ITUB4", "EGIE3", "PETR4", "VALE3", "EMBR3"]
     acoes_list = []
     
-    # Preços de referência (Caso o Yahoo bloqueie o servidor do Streamlit)
+    # Preços de referência caso o Yahoo falhe
     precos_ref = {
         "BBSE3": 35.20, "ITSA4": 10.85, "TAEE11": 36.10, "ITUB4": 34.50, 
         "EGIE3": 41.80, "PETR4": 38.20, "VALE3": 66.50, "EMBR3": 52.10
     }
     
-    # Dividend Yield Médio Estimado (Para evitar múltiplas consultas e novos bloqueios)
     yields_ref = {
         "BBSE3": 0.10, "ITSA4": 0.08, "TAEE11": 0.09, "ITUB4": 0.06, 
         "EGIE3": 0.07, "PETR4": 0.12, "VALE3": 0.07, "EMBR3": 0.02
@@ -47,18 +50,14 @@ def analisar_tudo_v4(valor_aporte):
     for t in tickers:
         try:
             t_sa = f"{t}.SA"
-            # Tentativa de pegar preço atual
             try:
-                # O history é mais leve que o download e evita o erro 429
                 hist = yf.Ticker(t_sa).history(period="1d")
                 p = hist['Close'].iloc[-1] if not hist.empty else precos_ref[t]
             except:
                 p = precos_ref[t]
 
-            # Filtro de aporte (Se o dinheiro não compra 1 ação, ele pula)
             if not p or valor_aporte < p: continue
 
-            # Cálculo de Dividendos e Preço Teto
             dy = yields_ref.get(t, 0.06)
             media_div = p * dy
             preco_teto = media_div / 0.06
@@ -69,7 +68,7 @@ def analisar_tudo_v4(valor_aporte):
 
             acoes_list.append({
                 "Ativo": t, 
-                "Onde": "B3", 
+                "Onde": "Home Broker B3", # Nome do local para ações
                 "Mensal Líq.": round(renda_mensal, 2),
                 "Margem": f"{margem:.1f}%", 
                 "Status": "🔥 OPORTUNIDADE" if margem > 10 else "SAUDÁVEL", 

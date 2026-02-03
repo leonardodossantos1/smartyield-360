@@ -2,8 +2,8 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timezone, timedelta
 
-# CONFIGURAÇÕES DE MERCADO 2026
-SELIC = 0.1175
+# CONFIGURAÇÕES DE MERCADO ATUALIZADAS 2026
+SELIC = 0.1225  # Atualize este valor conforme o Copom
 CDI = SELIC - 0.0010 
 
 def analisar_tudo_v4(valor_aporte):
@@ -25,16 +25,15 @@ def analisar_tudo_v4(valor_aporte):
             acumulado_12m = (acumulado_12m + valor_aporte) * (1 + taxa_mensal)
         
         rf_list.append({
-            "Ativo": i['Ativo'],
-            "Onde": i['Onde'],
-            "Mensal Líq.": round(mensal_liq, 2),
-            "Evolução 1 Ano": round(acumulado_12m, 2),
-            "Score": 9,
-            "Categoria": "Renda Fixa"
+            "Ativo": i['Ativo'], "Onde": i['Onde'], "Mensal Líq.": round(mensal_liq, 2),
+            "Evolução 1 Ano": round(acumulado_12m, 2), "Score": 9, "Categoria": "Renda Fixa"
         })
 
-    # 2. CATEGORIA: AÇÕES
-    tickers = ["BBSE3", "ITSA4", "TAEE11", "ITUB4", "EGIE3", "SANB11", "VIVT3", "CPLE3"]
+    # 2. CATEGORIA: AÇÕES (LISTA EXPANDIDA)
+    tickers = [
+        "BBSE3", "ITSA4", "TAEE11", "ITUB4", "EGIE3", 
+        "SANB11", "VIVT3", "CPLE3", "PETR4", "VALE3", "EMBR3"
+    ]
     acoes_list = []
     
     for t in tickers:
@@ -53,17 +52,12 @@ def analisar_tudo_v4(valor_aporte):
             mensal_liq = (qtd * (media_5y / 12))
             evolucao_12m = (valor_aporte * 12) + (mensal_liq * 6.5)
 
-            status = "🔥 OPORTUNIDADE OURO" if margem > 20 else "SAUDÁVEL"
+            status = "🔥 OPORTUNIDADE" if margem > 20 else "SAUDÁVEL"
 
             acoes_list.append({
-                "Ativo": t,
-                "Onde": "Corretora (B3)",
-                "Mensal Líq.": round(mensal_liq, 2),
-                "Margem": f"{margem:.1f}%",
-                "Status": status,
-                "Evolução 1 Ano": round(evolucao_12m, 2),
-                "Score": 10 if margem > 20 else 7,
-                "Categoria": "Ações"
+                "Ativo": t, "Onde": "Corretora (B3)", "Mensal Líq.": round(mensal_liq, 2),
+                "Margem": f"{margem:.1f}%", "Status": status, "Evolução 1 Ano": round(evolucao_12m, 2),
+                "Score": 10 if margem > 20 else 7, "Categoria": "Ações"
             })
         except: continue
 
